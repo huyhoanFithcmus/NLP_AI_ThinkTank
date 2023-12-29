@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "myproject"
+version = "1.0"
+description = "This my own LLM app for a personal digital diary"
+authors = ["Aamir Ahmad Ansari <zaikali22@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+packages = [
+    { include = "dear-diary", from = "." },
+]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+streamlit = "^1.29.0"
+pandas = "^2.1.4"
+transformers = "^4.36.2"
+torch = "^2.1.2"
+sqlalchemy = "^2.0.24"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
