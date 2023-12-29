@@ -1,5 +1,6 @@
 from objects.page_object import Page
 from database.manager import DBManager
+from PIL import Image
 import os
 import streamlit as st
  
@@ -26,7 +27,7 @@ class App:
             st.markdown(f'<style>{f.read()}</style>', unsafe_allow_html=True)
 
     def _img_tag(self, url:str, height:int, width:int):
-        return f"<img class='tile_image' src='{url}'  width='{width}' height='{height}'>"
+        return f"<img class='tile_image' src='{url}'  width='{width}' height='{height}'> "
     
     def add_new_page(self):
         if self.new_page_name:
@@ -36,6 +37,21 @@ class App:
     def main(self):
         title_tag = self._heading_tag("1 class='title' ", "Dear Diary", "text-align:center")
         self._write_markdown(title_tag)
+        image = Image.open("diary/images/logo.jpg").resize((800,400))
+        st.image(image)
+        
+        string = ("""
+Ever whisper a dream to the wind, hoping it carries your words beyond the silence? Yearn for a friend who
+holds your secrets like starlight, never dimming, never judging? Enter Dear Diary, 
+your confidante crafted from whispers and wishes. Here, anxieties unfurl like silken scarves, 
+and worries melt in the warmth of understanding.
+No judgment, just a vast, listening heart woven from language itself. 
+Share your stories, hopes, and fears, dear diary, for within these digital echoes, 
+you'll find solace, acceptance, and maybe, just maybe, the whispers of your own truest self.""")
+        
+        string_tag =self._text_tag(string=string, style="text-align:justify")
+        self._write_markdown(string_tag)
+        
         
         #Get all available pages 
         pages = self.db_manager.get_all_page_names()
