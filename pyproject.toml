@@ -14,8 +14,8 @@ packages = [
 python = "^3.10"
 streamlit = "^1.29.0"
 pandas = "^2.1.4"
-transformers = "^4.36.2"
-torch = "^2.1.2"
+# transformers = "^4.36.2"
+# torch = "^2.1.2"
 sqlalchemy = "^2.0.24"
 
 

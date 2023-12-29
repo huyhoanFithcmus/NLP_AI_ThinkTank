@@ -2,7 +2,7 @@ import streamlit as st
 import random
 from datetime import datetime
 import time
-from database import DBManager
+from diary.database import DBManager
 
 
 class ChatBot:
@@ -10,6 +10,7 @@ class ChatBot:
         self.bot_url = url 
         self.page_name = page_name
         self.db_manager = DBManager()
+
         
         
     def main(self):
@@ -18,22 +19,20 @@ class ChatBot:
             messages = self.db_manager.get_messages(page_name=self.page_name)
             messages = messages["messages"].values[0]
             messages = eval(messages)
+            original_messages = messages
         except:
             messages = []
-            
-        if "messages" not in st.session_state:
-            st.session_state.messages = messages
-            
+                        
 
         # Display chat messages from history on app rerun
-        for message in st.session_state.messages:
+        for message in messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
         # Accept user input
-        if prompt := st.chat_input("What is up?"):
+        if prompt := st.chat_input("I am listening"):
             # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
+            messages.append({"role": "user", "content": prompt})
             # Display user message in chat message container
             with st.chat_message("user"):
                 st.markdown(prompt)
@@ -57,12 +56,15 @@ class ChatBot:
                     message_placeholder.markdown(full_response + "▌")
                 message_placeholder.markdown(full_response)
             # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            messages.append({"role": "assistant", "content": full_response})
             try:
-                self.db_manager.update_table(table="pages",
-                                            col_name="messages",
-                                            value= str(st.session_state.messages),
-                                            page_name=self.page_name)
+                if messages:
+                    appending_messages = original_messages + messages
+                    self.db_manager.update_table(table="pages",
+                                                col_name="messages",
+                                                value= str(appending_messages).replace("'",'"'),
+                                                page_name=self.page_name)
             except Exception as e:
                 print(e)
+                
                 

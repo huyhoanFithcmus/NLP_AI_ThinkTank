@@ -23,11 +23,15 @@ class DBManager:
 
         self.ADD_COLUMN = """ALTER TABLE {table} ADD COLUMN  {col_name} {col_type} DEFAULT {default}; """
         
-        self.UPDATE_TABLE = """UPDATE {table} SET {col_name}={value} where page_name='{page_name}';"""
+        self.UPDATE_TABLE = """UPDATE {table} SET {col_name}='{value}' where page_name='{page_name}';"""
         
         self.INSERT_INTO_TABLE = """INSERT INTO {table}{cols} VALUES{values} """
         
+        self.GET_PAGE_NAME = """SELECT page_name FROM pages where page_name='{page_name}'"""
+        
         self.GET_MESSAGES = """SELECT messages FROM pages where page_name='{page_name}'"""
+        
+        self.GET_ALL_PAGE_NAMES = """SELECT page_name from pages"""
         
         
         
@@ -119,7 +123,24 @@ class DBManager:
             raise Exception(e)
         
         
-    
+    def get_page_name(self, page_name:str):
+        try:            
+            #Get run id from the runs table  
+            run_payload = {}
+            run_payload["page_name"] = page_name
+            res = self._get_df(self.GET_PAGE_NAME.format(**run_payload))
+            return res
+        except Exception as e:
+            return None
+        
+    def get_all_page_names(self):
+        try:            
+            res = self._get_df(self.GET_ALL_PAGE_NAMES)
+            return res
+        except Exception as e:
+            return None
+        
+        
  
         
         
@@ -269,7 +290,7 @@ class DBManager:
         try:
             self.connect_db()
             
-            self.create_table(self.CREATE_TABLE_RUNS_META)
+            self.create_table(self.CREATE_TABLE_PAGES)
             
             self.session.commit()
             

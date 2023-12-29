@@ -1,29 +1,22 @@
 import streamlit as st 
 import datetime
-from chatbot import ChatBot 
+from diary.objects.chatbot import ChatBot 
 import time
-from database import DBManager
+from diary.database import DBManager
 class Page:
     
     def __init__(self, title:str|None=None):
         self.title = title
-        st.set_page_config(
-            page_title=f"Topic: {self.title}",
-            initial_sidebar_state="expanded",
-            layout="centered",
-            menu_items={"About":"""This is where you can see all 
-                        your thoughts"""}
-            
-        ),
         self.db_manager = DBManager()
         self.db_manager.create_table(self.db_manager.CREATE_TABLE_PAGES)
-        values={
-                    "time": str(datetime.now()),
-                    "page_id":hash(self.page_name),
-                    "messages": str(st.session_state.messages)
-                }
-        self.db_manager.insert_into_pages(page_name=self.title,
-                                            values=values)
+        if self.db_manager.get_page_name(page_name=self.title).values.__len__()<1:
+            values={
+                        "time": str(datetime.datetime.now()),
+                        "page_id":hash(self.title),
+                        "messages": str("[]")
+                    }
+            self.db_manager.insert_into_pages(page_name=self.title,
+                                                values=values)
         
     def headings(self):
         # Get the current date, day, and time
@@ -49,4 +42,3 @@ class Page:
         chatbot = ChatBot(page_name=self.title)
         chatbot.main()
         
-Page("My Thoughts").main()
