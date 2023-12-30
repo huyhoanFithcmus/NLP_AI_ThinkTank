@@ -1,11 +1,11 @@
 import google.generativeai as genai
 import os 
 import json
-
+SECRETS_PATH = "diary/models/secrests.json"
 class GoogleModel:
     def __init__(self):
         self.model_name = "gemini-pro"
-        with open("diary/models/secrests.json", "r") as f:
+        with open(SECRETS_PATH, "r") as f:
             self.env_vars = json.load(f)
     
     def make_pipeline(self):

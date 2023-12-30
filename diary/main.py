@@ -3,8 +3,10 @@ from database.manager import DBManager
 from PIL import Image
 import os
 import streamlit as st
- 
-os.environ["DATABASE_URI"] ="sqlite:///E:\dear-diary\database.db"
+
+#Comment this if you add an environment variable
+DB_PATH = "sqlite:///E:/dear-diary/database.db"
+os.environ["DATABASE_URI"] = DB_PATH
 
 class App:
     def __init__(self):
@@ -55,8 +57,11 @@ you'll find solace, acceptance, and maybe, just maybe, the whispers of your own 
         
         #Get all available pages 
         pages = self.db_manager.get_all_page_names()
-        pages = pages["page_name"].values
-        self.pages = list(pages)
+        if pages is not None:
+            pages = pages["page_name"].values
+            self.pages = list(pages)
+        else:
+            self.pages = []
         self.pages.insert(0, None)
         selected_page = st.sidebar.selectbox("Choose a Page", self.pages)
         if selected_page:

@@ -6,4 +6,6 @@ COPY . .
 
 RUN pip install poetry 
 
+EXPOSE 8501
+
 ENTRYPOINT ["bin/bash"]
