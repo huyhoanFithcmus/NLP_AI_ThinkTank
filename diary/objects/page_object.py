@@ -1,5 +1,6 @@
 import streamlit as st 
 import datetime
+import json
 from diary.objects.chatbot import ChatBot 
 import time
 from diary.database import DBManager
@@ -13,7 +14,7 @@ class Page:
             values={
                         "time": str(datetime.datetime.now()),
                         "page_id":hash(self.title),
-                        "messages": str("[]")
+                        "messages": json.dumps({})
                     }
             self.db_manager.insert_into_pages(page_name=self.title,
                                                 values=values)
@@ -39,6 +40,7 @@ class Page:
                 
     def main(self):
         self.headings()
-        chatbot = ChatBot(page_name=self.title)
+        url = "http://127.0.0.1:8500/predict"
+        chatbot = ChatBot(page_name=self.title, url=url)
         chatbot.main()
         

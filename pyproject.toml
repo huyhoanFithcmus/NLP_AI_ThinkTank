@@ -20,6 +20,8 @@ sqlalchemy = "^2.0.24"
 einops = "^0.7.0"
 accelerate = "^0.25.0"
 fastapi = {extras = ["all"], version = "^0.108.0"}
+google-generativeai = "^0.3.2"
+uvicorn = {extras = ["standard"], version = "^0.25.0"}
 
 
 [build-system]
