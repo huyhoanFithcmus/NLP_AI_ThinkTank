@@ -9,6 +9,11 @@ from langchain.schema import StrOutputParser
 from langchain.prompts import ChatPromptTemplate
 import re
 
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import firestore
+
+
 
 class Debate():
     def __init__(self, api_key: str, model_name: str = "gemini-1.0-pro") -> None:
@@ -20,10 +25,36 @@ class Debate():
         self.experts = []
         self.image_url = None
 
+        if not firebase_admin._apps:
+            # Khởi tạo ứng dụng Firebase
+            service_account_key = {
+                "type": env("TYPE"),
+                "project_id": env("PROJECT_ID"),
+                "private_key_id": env("PRIVATE_KEY_ID"),
+                "private_key": env("PRIVATE_KEY").replace("\\n", "\n"),
+                "client_email": env("CLIENT_EMAIL"),
+                "client_id": env("CLIENT_ID"),
+                "auth_uri": env("AUTH_URI"),
+                "token_uri": env("TOKEN_URI"),
+                "auth_provider_x509_cert_url": env("AUTH_PROVIDER_X509_CERT_URL"),
+                "client_x509_cert_url": env("CLIENT_X509_CERT_URL"),
+            }
+
+            cred = credentials.Certificate(service_account_key)
+            firebase_admin.initialize_app(cred)
+            
+
+
     def add_message(self, role: str, content: str, avatar: Optional[str] = None) -> None:
         self.debate_history.append({"role": role, "avatar": avatar, "content": content})
+
+        db = firestore.client() # connecting to firestore
+        collection = db.collection('programmer_details')  # create collection
+        collection.document('A01').set(self.debate_history)
+
         role = "user" if role == "user" else "assistant"
         self.memory.append(ChatMessage(role=role, content=content))
+
 
     def get_experts(self) -> List[Expert]:
         return self.experts
