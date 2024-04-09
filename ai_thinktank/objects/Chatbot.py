@@ -1,9 +1,11 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import json
 import requests
 import re
 
 from datetime import datetime
+from streamlit_player import st_player
 from functools import wraps
 from PIL import Image
 from io import BytesIO
@@ -11,6 +13,12 @@ from io import BytesIO
 from database.Manager import DBManager
 from objects.Debate import Debate
 from objects.StreamHandler import StreamHandler
+from models.gemini import GoogleModel
+
+# Version read pdf:
+from PyPDF2 import PdfReader
+from langchain.prompts import PromptTemplate
+from langchain.chains.llm import LLMChain
 
 @st.cache_resource
 class ChatBot:
@@ -21,10 +29,13 @@ class ChatBot:
         self.submitted = False
         self.start_debate = False
         self.url_image = None
+        self.url_document = None
         self.debate = None
         self.initialized = None
         self.experts = []
         self.topic = None
+        self.get_pdf = False
+        self.url_youtube = None
     
     def show_spinner(func):
         @wraps(func)
@@ -46,6 +57,8 @@ class ChatBot:
         self.topic = self.debate.topic 
         self.experts = self.debate.get_experts()
         self.url_image = self.debate.image_url
+        self.url_document = self.debate.document_url
+        self.url_youtube = self.debate.youtube_url
         self.initialized = True
     
     def conduct_debate_round(self):
@@ -62,7 +75,6 @@ class ChatBot:
                 with chat.chat_message(name=expert.expert_instruction["role"], avatar=default_avatar):
                     response = expert.generate_argument(self.debate, StreamHandler(st.empty()))
                     self.debate.add_message(role=expert.expert_instruction["role"], avatar=default_avatar, content=response)
-                    
                     self.db_manager.update_table(table="pages", col_name="messages", value=json.dumps(self.debate.debate_history), ensure_ascii=False, page_name=self.page_name)
 
     def has_existing_debate(self):
@@ -74,6 +86,30 @@ class ChatBot:
         """
         message_data = self.db_manager.get_debates(self.page_name)
         return bool(message_data and message_data.get('output'))
+
+    def get_topic_from_pdf_text(self, pdf_docs):
+        raw_text = ""
+        for pdf in pdf_docs:
+            pdf_reader = PdfReader(pdf)
+            for page in pdf_reader.pages:
+                raw_text += page.extract_text()
+        return raw_text
+    
+    def generate_topic_from_pdf(self, pdf_docs, model_name="gemini-1.0-pro"):
+        model_summarize = GoogleModel(model_name=model_name, stream=True, convert_system_message_to_human=True)
+        summarize_model = model_summarize.make_pipeline()
+
+        prompt_template = """
+        Generate a debate topic based on the following content, ensuring the topic presents a clear issue with distinct pro and con sides. The topic should be a concise statement that encourages discussion from opposing viewpoints. Just one single short sentence:
+        {pdf_docs}
+        CONCISE TOPIC DEBATE:
+        """
+
+        prompt_pdf = PromptTemplate.from_template(prompt_template)
+        llm_chain = LLMChain(llm=summarize_model, prompt=prompt_pdf)
+        generated_topic = llm_chain.run(pdf_docs)
+
+        return generated_topic
 
     def main(self):
         
@@ -103,19 +139,69 @@ class ChatBot:
                 st.image(image, caption="Debate Image", use_column_width=True)
             except Exception as e:
                 st.error(f"Failed to load image from URL. Error: {e}")
-
+        elif self.url_document is not None and self.url_document != "":
+            try:
+                iframe_src = self.url_document
+                components.iframe(iframe_src)
+            except Exception as e:
+                st.error(f"Failed to load document from URL. Error: {e}")
+        elif self.url_youtube is not None and self.url_youtube != "":
+            try:
+                st_player(self.url_youtube)
+            except Exception as e:
+                st.error(f"Failed to load video from URL. Error: {e}")
+        
         global topic 
         if self.topic is not None:
             st.header(self.topic)
 
+        # Check database for existing debate data:
+        if self.has_existing_debate() and self.submitted is False:
+            # Extract debate data from the database:
+            debate_data_record = self.db_manager.get_debates(self.page_name)
+            debate_data = json.loads(debate_data_record["output"])
+
+            # Extract expert instructions from the database:
+            expert_instructions_record = self.db_manager.get_expert_instructions(self.page_name)
+            expert_instructions = json.loads(expert_instructions_record["output"])
+
+            # Extract topic from the database:
+            topic_record = self.db_manager.get_topic_page_value(self.page_name)
+            topic = topic_record["page_topic"].values[0]
+
+            # Initialize the debate with the existing data:
+            self.initialize_debate(start_new=False, debate_history=debate_data, expert_instructions=expert_instructions)
+
+            # Set flag to start the debate:
+            self.start_debate = True
+
+        with st.sidebar:
+            st.markdown("---")
+            st.title("Upload PDF:")
+            pdf_docs = st.file_uploader(
+                "Upload your PDF File and Click on the Submit & Process Button", accept_multiple_files=True)
+            
+            if st.button("Submit & Process"):
+                with st.spinner("Processing..."):
+                    self.get_pdf = True
+                    raw_text = self.get_topic_from_pdf_text(pdf_docs)
+                    self.topic = self.generate_topic_from_pdf(raw_text)
+        
         form = st.form(key="form_settings")
         topicCol, buttonCol = form.columns([4,1])
-
         
-        topic = topicCol.text_input(
-            "Enter your topic of debate",
-            key="topic"
-        )
+        if self.get_pdf is False:
+            topic = topicCol.text_input(
+                "Enter your topic of debate",
+                placeholder="Accepts image, youtube or document URL",
+                key="topic"
+            )
+        else:
+            topic = topicCol.text_area(
+                "The topic that was generated from the PDF",
+                value=self.topic,
+                key="topic"
+            )
         
         expander = form.expander("Customize debate")
         global number_experts 
@@ -135,34 +221,13 @@ class ChatBot:
         # Update stance, topic, experts in the database:
         submitted = buttonCol.form_submit_button(label="Submit")
         if submitted and topic.strip(): 
-            url_pattern = r'https?://\S+\.(jpg|jpeg|png|gif|bmp|svg|JPG)$'
-            if re.match(url_pattern, topic.strip()):
-                self.url_image = topic
-
             self.submitted = True
             self.initialize_debate()
-
             # Update topic, experts in the database:
             self.db_manager.update_table(table="pages", col_name="page_topic", value=self.topic, page_name=self.page_name)
             self.db_manager.update_table(table="pages", col_name="expert_instructions", value=json.dumps([expert.expert_instruction for expert in self.experts], ensure_ascii=False).replace("'", "''"), page_name=self.page_name)
             self.start_debate = False
             
-        # Check database for existing debate data:
-        if self.has_existing_debate() and self.submitted is False:
-            debate_data_record = self.db_manager.get_debates(self.page_name)
-            debate_data = json.loads(debate_data_record["output"])
-            expert_instructions_record = self.db_manager.get_expert_instructions(self.page_name)
-            expert_instructions = json.loads(expert_instructions_record["output"])
-            self.experts = json.dumps(expert_instructions, ensure_ascii=False)
-            self.initialize_debate(start_new=False, debate_history=debate_data, expert_instructions=expert_instructions)
-
-            topic = self.db_manager.get_topic_page_value(self.page_name)
-            self.topic = topic["page_topic"].values[0]
-            self.experts = self.debate.get_experts()
-
-            self.start_debate = True
-            
-
         global chat
         chat = st.container()
 
@@ -171,14 +236,14 @@ class ChatBot:
                 chat.chat_message(name=msg["role"], avatar=msg["avatar"]).write(msg["content"])
 
         if submitted and topic.strip():
-            url_pattern = r'https?://\S+\.(jpg|jpeg|png|gif|bmp|svg|JPG)$'
-            if re.match(url_pattern, topic.strip()):
-                self.url_image = topic
-
             self.submitted = True
             self.initialize_debate()
-            self.start_debate = False
 
+            # Update topic, experts in the database:
+            self.db_manager.update_table(table="pages", col_name="page_topic", value=self.topic, page_name=self.page_name)
+            self.db_manager.update_table(table="pages", col_name="expert_instructions", value=json.dumps([expert.expert_instruction for expert in self.experts], ensure_ascii=False).replace("'", "''"), page_name=self.page_name)
+
+            self.start_debate = False
 
         if self.initialized is True and self.initialized is not None:
             expert_expander = form.expander("Generated Experts")

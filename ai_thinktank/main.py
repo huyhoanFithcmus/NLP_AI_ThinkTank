@@ -1,5 +1,5 @@
-from ai_thinktank.objects.PageObject import Page
-from ai_thinktank.database.Manager import DBManager
+from objects.PageObject import Page
+from database.Manager import DBManager
 from PIL import Image
 from pathlib import Path
 import os
