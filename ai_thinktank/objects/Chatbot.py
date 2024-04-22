@@ -302,5 +302,5 @@ class ChatBot:
                     self.conduct_debate_round()
 
                 st.button("Continue debate", on_click=self.conduct_debate_round)
-                st.download_button("Generate Vocabulary", data=self.generate_english_new_word(), file_name="vocab")
+                st.download_button("Generate Vocabulary", data=self.generate_english_new_word(), file_name="vocab", use_container_width=True)
             
