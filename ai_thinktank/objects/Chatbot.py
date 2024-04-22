@@ -2,7 +2,6 @@ import streamlit as st
 import streamlit.components.v1 as components
 import json
 import requests
-import re
 
 from datetime import datetime
 from streamlit_player import st_player
@@ -20,10 +19,6 @@ from PyPDF2 import PdfReader
 from langchain.prompts import PromptTemplate
 from langchain.chains.llm import LLMChain
 import google.generativeai as genai
-
-genai.configure(api_key="AIzaSyBrh5bOh7RaTWA805GbIj9nnz9j9R18Lgs")  # Make sure to set your API key in the environment variable
-model = genai.GenerativeModel('gemini-pro')
-
 @st.cache_resource
 class ChatBot:
     def __init__(self, page_name:str, url:str|None=None):
@@ -74,17 +69,7 @@ class ChatBot:
                     expert.generate_argument(self.debate, stream_handler)
                     final_response = stream_handler.get_accumulated_response()
 
-                    # from final_response, extract new words with meaning for learn English
-
-                    english_words_prompt = f"""
-                    Extract new words with meaning from the following response:
-                    {final_response}
-                    """
-                    model = genai.GenerativeModel('gemini-pro')
-                    english_words_response = model.generate_content(english_words_prompt)
-                    extracted_words = english_words_response.text
-
-                    self.debate.add_message(role=expert.expert_instruction["role"], avatar=expert.expert_instruction["avatar"], content=final_response + "\n\n" + "New words" + "\n" + extracted_words)
+                    self.debate.add_message(role=expert.expert_instruction["role"], avatar=expert.expert_instruction["avatar"], content=final_response)
                     self.db_manager.update_table(table="pages", col_name="messages", value=json.dumps(self.debate.debate_history, ensure_ascii=False), page_name=self.page_name)
             except Exception:
                 with chat.chat_message(name=expert.expert_instruction["role"], avatar=default_avatar):
@@ -125,6 +110,44 @@ class ChatBot:
         generated_topic = llm_chain.run(pdf_docs)
 
         return generated_topic
+    
+    def generate_english_new_word(self, model_name="gemini-1.0-pro"):
+        message_data = self.db_manager.get_debates(self.page_name).get("output")
+        english_words_prompt = f"""
+            The purpose of this vocabulary development prompt is to guide the creation of a specialized vocabulary based on a specific content domain. The vocabulary will include words relevant to the chosen content, along with their respective parts of speech, meanings in both English and Vietnamese, usage, and examples. This exercise aims to enhance understanding and communication within the chosen domain by expanding the vocabulary repertoire.
+
+                Components of the Vocabulary Entry:
+                1. Word: The term being added to the vocabulary.
+                2. Part of Speech: The grammatical category to which the word belongs (e.g., noun, verb, adjective, adverb).
+                3. Meaning (English): A concise definition or explanation of the word's significance in English.
+                4. Meaning (Vietnamese): The equivalent translation or interpretation of the word in Vietnamese.
+                5. Usage: How the word is typically used or applied within the context of the content domain.
+                6. Example: A sentence or phrase demonstrating the word's usage in context.
+
+                Instructions for Creating Vocabulary Entries:
+                1. For each word selected, provide the following components in a clear and organized manner.
+                2. Ensure accuracy and clarity in defining the meanings of words.
+                3. Include relevant information on part of speech and usage to facilitate understanding.
+                4. Provide diverse and illustrative examples to demonstrate the word's usage effectively.
+                5. Use language appropriate to the target audience's proficiency level within the domain.
+
+                Example Vocabulary Entry:
+
+                ---------------------------------------------------------------------
+                - Word 1: Encryption
+                - Part of Speech: Noun
+                - Meaning (English): The process of encoding information or data in such a way that only authorized parties can access it, typically through the use of algorithms and keys.
+                - Meaning (Vietnamese): Quá trình mã hóa thông tin hoặc dữ liệu một cách sao cho chỉ có các bên được ủy quyền mới có thể truy cập, thông thường thông qua việc sử dụng thuật toán và khóa.
+                - Usage: Encryption is commonly employed in data security protocols to safeguard sensitive information from unauthorized access.
+                - Example: The company utilizes strong encryption techniques to protect customer data during transmission over the internet.
+                ---------------------------------------------------------------------
+
+                This tis the content you will extract and make the vocabulary on this: {message_data} 
+        """
+        model = genai.GenerativeModel('gemini-pro')
+        english_words_response = model.generate_content(english_words_prompt)
+        extracted_words = english_words_response.text
+        return extracted_words.replace("*", "")
 
     def main(self):
         
@@ -279,4 +302,5 @@ class ChatBot:
                     self.conduct_debate_round()
 
                 st.button("Continue debate", on_click=self.conduct_debate_round)
+                st.download_button("Generate Vocabulary", data=self.generate_english_new_word(), file_name="vocab")
             

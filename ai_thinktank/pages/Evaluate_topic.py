@@ -49,21 +49,6 @@ for message in st.session_state.chat.history:
         st.markdown(message.parts[0].text)
 
 
-# Accept user's next message, add to context, resubmit context to Gemini
-# if prompt := st.text_input("Enter your argument here:"):
-#     # Display user's last message
-#     st.chat_message("user").markdown(prompt)
-    
-#     # Send user entry to Gemini and read the response
-#     template = "Evaluate the relevance of the following argument: {promt} on scale of 1 to 10."
-#     response = st.session_state.chat.send_message(template) 
-
-#     # Display Gemini's response and the calculated score
-#     with st.chat_message("assistant"):
-#         st.markdown(response.text)
-
-# Accept user's next message, add to context, resubmit context to Gemini
-
 def is_image_url(input_string: str) -> bool:
         # Regular expression to match URLs ending with image file extensions
         url_pattern = r'https?://\S+\.(jpg|jpeg|png|gif|bmp|svg|JPG)$'
@@ -139,16 +124,20 @@ if prompt := st.chat_input("Enter your argument here:"):
         topic = generate_topic_from_youtube(prompt)
     else:
         topic = prompt
-        
+
+    # Send user entry to Gemini and read the response
+
+    st.session_state.chat.send_message(topic)
+    
+    
+    template_debate = f"Debate with topic: {topic}."
+    response_debate = genai.GenerativeModel('gemini-pro').generate_content(template_debate)
     
     # Send user entry to Gemini and read the response
-    template = f"Rate this argument: {topic} on a 10-point scale according to the criteria for evaluating an argument"
-    response = st.session_state.chat.send_message(template) 
-
-    english_learning_prompt = f"""can you explain the new words in the argument: {topic}"""
-
-    english_learing_response = st.session_state.chat.send_message(english_learning_prompt)
+    template_rating = f"Rate this argument: {topic} on a 10-point scale for each person and do not provide any feedback."
+    response_rating = genai.GenerativeModel('gemini-pro').generate_content(template_rating)
     
     # Display last 
     with st.chat_message("assistant"):
-        st.markdown(topic + "\n" + response.text + "\n" + english_learing_response.text)
+        st.markdown(response_debate.text)
+        st.markdown(response_rating.text + " in terms of relevance to the topic.")
