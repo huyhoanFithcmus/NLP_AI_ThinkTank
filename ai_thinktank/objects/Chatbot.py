@@ -19,6 +19,10 @@ from models.gemini import GoogleModel
 from PyPDF2 import PdfReader
 from langchain.prompts import PromptTemplate
 from langchain.chains.llm import LLMChain
+import google.generativeai as genai
+
+genai.configure(api_key="AIzaSyBrh5bOh7RaTWA805GbIj9nnz9j9R18Lgs")  # Make sure to set your API key in the environment variable
+model = genai.GenerativeModel('gemini-pro')
 
 @st.cache_resource
 class ChatBot:
@@ -69,7 +73,18 @@ class ChatBot:
                     stream_handler = StreamHandler(st.empty())
                     expert.generate_argument(self.debate, stream_handler)
                     final_response = stream_handler.get_accumulated_response()
-                    self.debate.add_message(role=expert.expert_instruction["role"], avatar=expert.expert_instruction["avatar"], content=final_response)
+
+                    # from final_response, extract new words with meaning for learn English
+
+                    english_words_prompt = f"""
+                    Extract new words with meaning from the following response:
+                    {final_response}
+                    """
+                    model = genai.GenerativeModel('gemini-pro')
+                    english_words_response = model.generate_content(english_words_prompt)
+                    extracted_words = english_words_response.text
+
+                    self.debate.add_message(role=expert.expert_instruction["role"], avatar=expert.expert_instruction["avatar"], content=final_response + "\n\n" + "New words" + "\n" + extracted_words)
                     self.db_manager.update_table(table="pages", col_name="messages", value=json.dumps(self.debate.debate_history, ensure_ascii=False), page_name=self.page_name)
             except Exception:
                 with chat.chat_message(name=expert.expert_instruction["role"], avatar=default_avatar):
